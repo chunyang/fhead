@@ -1,5 +1,4 @@
-AM_CFLAGS = -g -c -Wall -DFIT_USE_STDINT_H
-AM_LDFLAGS = -lfit
+AM_CFLAGS = -DFIT_USE_STDINT_H
 
 bin_PROGRAMS = fhead
 fhead_SOURCES = main.c
