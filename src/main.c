@@ -8,7 +8,7 @@
 #define VERBOSE 0
 
 #define TIME_BUF_SIZE 256
-#define TIME_OFFSET 631065600
+#define TIME_OFFSET 631065600   // 12 AM UTC Dec 31, 1989
 
 typedef struct fit_summary {
     /* Product information */
