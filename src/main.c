@@ -5,7 +5,10 @@
 #include <fit/fit.h>
 #include <fit/fit_convert.h>
 
+#define VERBOSE 0
+
 #define TIME_BUF_SIZE 256
+#define TIME_OFFSET 631065600
 
 typedef struct fit_summary {
     /* Product information */
@@ -97,8 +100,10 @@ fit_summary* summarize(const char *file_name)
                     FIT_UINT16 mesg_num = FitConvert_GetMessageNumber();
 
                     if (update(summary, mesg, mesg_num)) {
-                        /*fprintf(stderr, "Unknown message number %hd\n",
-                                mesg_num);*/
+#if VERBOSE
+                        fprintf(stderr, "Unknown message number %hd\n",
+                                mesg_num);
+#endif
                     }
 
                     mesg_index++;
@@ -168,7 +173,7 @@ void print(fit_summary* summary)
             summary->software_version,
             summary->hardware_version);
 
-    t = summary->time_created;
+    t = summary->time_created + TIME_OFFSET;
     tmp = localtime(&t);
     strftime(buf, sizeof buf, "%X %x", tmp);
     printf("File information:\n"
