@@ -15,3 +15,12 @@
 *.exe
 *.out
 *.app
+
+# Autoconf generated files
+Makefile
+config.log
+config.status
+.deps
+
+# Binary executable
+src/fhead
