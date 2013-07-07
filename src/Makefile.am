@@ -1,2 +1,2 @@
 bin_PROGRAMS = fhead
-fhead_SOURCES = main.c
+fhead_SOURCES = main.c summary.c
