@@ -21,6 +21,7 @@ Makefile
 config.log
 config.status
 .deps
+autom4te.cache
 
 # Binary executable
 src/fhead
