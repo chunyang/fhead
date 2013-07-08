@@ -1,6 +1,7 @@
 #ifndef SUMMARY_H
 #define SUMMARY_H
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 

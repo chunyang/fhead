@@ -1,6 +1,9 @@
 #include "summary.h"
 
 int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num);
+int push_data(fit_summary *summary, const FIT_RECORD_MESG *mesg);
+int resize_data(fit_summary *summary);
+int resize_data_field(void **field, size_t nmemb, size_t size);
 
 fit_summary* create_summary()
 {
@@ -147,6 +150,11 @@ int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num)
 
             summary->software_version = creator->software_version;
             summary->hardware_version = creator->hardware_version;
+            return 0;
+        }
+        case FIT_MESG_NUM_RECORD:
+        {
+            return push_data(summary, (const FIT_RECORD_MESG*) mesg);
         }
         default:
             return 1;
@@ -155,3 +163,74 @@ int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num)
     return 0;
 }
 
+int push_data(fit_summary *summary, const FIT_RECORD_MESG *mesg)
+{
+    if (summary->data.num_records == summary->data.max_records) {
+        /* Increase size of data arrays */
+        if (resize_data(summary)) {
+            fprintf(stderr, "Unable to allocate storage for data!\n");
+            exit(ENOMEM);
+        }
+    }
+
+    unsigned int i = summary->data.num_records++;
+
+    summary->data.timestamps[i] = mesg->timestamp;
+    summary->data.latitudes[i] = mesg->position_lat;
+    summary->data.longitudes[i] = mesg->position_long;
+    summary->data.distances[i] = mesg->distance;
+    summary->data.speeds[i] = mesg->speed;
+
+    return 0;
+}
+
+/**
+ * Double the size of data arrays in summary struct
+ */
+int resize_data(fit_summary *summary)
+{
+    int res = 0;
+
+    summary->data.max_records *= 2;
+
+    res |= resize_data_field((void**) &summary->data.timestamps,
+                                summary->data.max_records,
+                                sizeof *summary->data.timestamps);
+
+    res |= resize_data_field((void**) &summary->data.timer_times,
+                                summary->data.max_records,
+                                sizeof *summary->data.timer_times);
+
+    res |= resize_data_field((void**) &summary->data.latitudes,
+                                summary->data.max_records,
+                                sizeof *summary->data.latitudes);
+
+    res |= resize_data_field((void**) &summary->data.longitudes,
+                                summary->data.max_records,
+                                sizeof *summary->data.longitudes);
+
+    res |= resize_data_field((void**) &summary->data.distances,
+                                summary->data.max_records,
+                                sizeof *summary->data.distances);
+
+    res |= resize_data_field((void**) &summary->data.speeds,
+                                summary->data.max_records,
+                                sizeof *summary->data.speeds);
+
+    return res;
+}
+
+/**
+ * Resize array to be nmemb elements of size
+ */
+int resize_data_field(void **field, size_t nmemb, size_t size)
+{
+    void *tmp;
+
+    if (!(tmp = realloc(*field, nmemb * size))) {
+        return 1;
+    }
+
+    *field = tmp;
+    return 0;
+}

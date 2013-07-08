@@ -6,6 +6,8 @@
 
 #define VERBOSE 0
 
+#define SPEED_TO_PACE(s) (26822.3996649131/(s))  // Convert mm/s to min/mi
+
 #define TIME_BUF_SIZE 256
 #define TIME_OFFSET 631065600   // 12 AM UTC Dec 31, 1989
 
@@ -33,6 +35,7 @@ int main(int argc, const char *argv[])
 
 void print(fit_summary* summary)
 {
+    int i;
     char buf[TIME_BUF_SIZE];
     time_t t;
     struct tm *tmp;
@@ -60,4 +63,9 @@ void print(fit_summary* summary)
             summary->number,
             buf);
 
+    printf("Data:\n");
+    for (i = 0; i < summary->data.num_records; i++) {
+        printf("%g min/mi\n", SPEED_TO_PACE(summary->data.speeds[i]));
+        /* printf("%g m/s\n", summary->data.speeds[i] / 1000.0); */
+    }
 }
