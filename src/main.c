@@ -6,6 +6,7 @@
 
 #define VERBOSE 0
 
+#define M_TO_MI(m) ((m) * 0.00000621371192237334)     // Convert cm to mi
 #define SPEED_TO_PACE(s) (26822.3996649131/(s))  // Convert mm/s to min/mi
 
 #define TIME_BUF_SIZE 256
@@ -43,7 +44,7 @@ void print(fit_summary* summary)
     printf("Product information:\n"
             "  Manufacturer: %hu\n"
             "  Product: %hu\n"
-            "  Serial number: %u\n"
+            "  Serial number: %lu\n"
             "  Software version: %hu\n"
             "  Hardware version: %hhu\n",
             summary->manufacturer,
@@ -63,9 +64,28 @@ void print(fit_summary* summary)
             summary->number,
             buf);
 
-    printf("Data:\n");
-    for (i = 0; i < summary->data.num_records; i++) {
-        printf("%g min/mi\n", SPEED_TO_PACE(summary->data.speeds[i]));
-        /* printf("%g m/s\n", summary->data.speeds[i] / 1000.0); */
+    // printf("Data:\n");
+    // for (i = 0; i < summary->data.num_records; i++) {
+    //     /* printf("%g min/mi\n", SPEED_TO_PACE(summary->data.speeds[i])); */
+    //     printf("%g\t%g\n", M_TO_MI(summary->data.distances[i]),
+    //             SPEED_TO_PACE(summary->data.speeds[i]));
+    // }
+
+    printf("Events (summary->data.num_events):\n");
+    for (i = 0; i < summary->data.num_events; i++) {
+        printf("  record index: %u\n"
+                "  timestamp: %u\n"
+                "  data: %u\n"
+                "  data16: %hu\n"
+                "  event: %hhu\n"
+                "  event_type: %hhu\n"
+                "  event_group: %hhu\n\n",
+                summary->data.event_index[i],
+                summary->data.events[i].timestamp,
+                summary->data.events[i].data,
+                summary->data.events[i].data16,
+                summary->data.events[i].event,
+                summary->data.events[i].event_type,
+                summary->data.events[i].event_group);
     }
 }

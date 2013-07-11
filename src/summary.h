@@ -4,11 +4,13 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <fit/fit.h>
 #include <fit/fit_convert.h>
 
 #define MIN_RECORDS 64
+#define MIN_EVENTS 16
 
 typedef struct records {
     unsigned int num_records;
@@ -19,6 +21,11 @@ typedef struct records {
     FIT_SINT32 *longitudes;     // semicircles
     FIT_UINT32 *distances;      // 100 * m,
     FIT_UINT16 *speeds;         // 1000 * m/s,
+
+    unsigned int num_events;
+    unsigned int max_events;
+    FIT_EVENT_MESG *events;
+    unsigned int *event_index;  // Identifies where the event takes place within the records
 } records;
 
 typedef struct fit_summary {

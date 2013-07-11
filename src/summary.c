@@ -3,7 +3,7 @@
 int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num);
 int push_data(fit_summary *summary, const FIT_RECORD_MESG *mesg);
 int resize_data(fit_summary *summary);
-int resize_data_field(void **field, size_t nmemb, size_t size);
+int resize_field(void **field, size_t nmemb, size_t size);
 
 fit_summary* create_summary()
 {
@@ -45,6 +45,13 @@ fit_summary* create_summary()
     summary->data.speeds =
         malloc(MIN_RECORDS * sizeof *(summary->data.speeds));
 
+    summary->data.num_events = 0;
+    summary->data.max_events = MIN_EVENTS;
+    summary->data.events =
+        malloc(MIN_EVENTS * sizeof *(summary->data.events));
+    summary->data.event_index =
+        malloc(MIN_EVENTS * sizeof *(summary->data.event_index));
+
     return summary;
 }
 
@@ -57,6 +64,8 @@ void destroy(fit_summary *summary)
         if (summary->data.longitudes) free(summary->data.longitudes);
         if (summary->data.distances) free(summary->data.distances);
         if (summary->data.speeds) free(summary->data.speeds);
+        if (summary->data.events) free(summary->data.events);
+        if (summary->data.event_index) free(summary->data.event_index);
 
         free(summary);
     }
@@ -124,6 +133,8 @@ fit_summary* summarize(const char *file_name)
                 file_name);
     }
 
+    /* Calculate derived values */
+
     return summary;
 }
 
@@ -156,6 +167,10 @@ int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num)
         {
             return push_data(summary, (const FIT_RECORD_MESG*) mesg);
         }
+        case FIT_MESG_NUM_EVENT:
+        {
+            return push_event(summary, (const FIT_EVENT_MESG*) mesg);
+        }
         default:
             return 1;
     }
@@ -184,8 +199,26 @@ int push_data(fit_summary *summary, const FIT_RECORD_MESG *mesg)
     return 0;
 }
 
+int push_event(fit_summary *summary, const FIT_EVENT_MESG *mesg)
+{
+    if (summary->data.num_events == summary->data.max_events) {
+        /* Increase the size of event arrays */
+        if (resize_events(summary)) {
+            fprintf(stderr, "Unable to allocate storage for events!\n");
+            exit(ENOMEM);
+        }
+    }
+
+    unsigned int i = summary->data.num_events++;
+
+    summary->data.event_index[i] = summary->data.num_records;
+    memcpy(&summary->data.events[i], mesg, FIT_EVENT_MESG_SIZE);
+
+    return 0;
+}
+
 /**
- * Double the size of data arrays in summary struct
+ * Double the size of data record arrays in summary struct
  */
 int resize_data(fit_summary *summary)
 {
@@ -193,29 +226,49 @@ int resize_data(fit_summary *summary)
 
     summary->data.max_records *= 2;
 
-    res |= resize_data_field((void**) &summary->data.timestamps,
-                                summary->data.max_records,
-                                sizeof *summary->data.timestamps);
+    res |= resize_field((void**) &summary->data.timestamps,
+                        summary->data.max_records,
+                        sizeof *summary->data.timestamps);
 
-    res |= resize_data_field((void**) &summary->data.timer_times,
-                                summary->data.max_records,
-                                sizeof *summary->data.timer_times);
+    res |= resize_field((void**) &summary->data.timer_times,
+                        summary->data.max_records,
+                        sizeof *summary->data.timer_times);
 
-    res |= resize_data_field((void**) &summary->data.latitudes,
-                                summary->data.max_records,
-                                sizeof *summary->data.latitudes);
+    res |= resize_field((void**) &summary->data.latitudes,
+                        summary->data.max_records,
+                        sizeof *summary->data.latitudes);
 
-    res |= resize_data_field((void**) &summary->data.longitudes,
-                                summary->data.max_records,
-                                sizeof *summary->data.longitudes);
+    res |= resize_field((void**) &summary->data.longitudes,
+                        summary->data.max_records,
+                        sizeof *summary->data.longitudes);
 
-    res |= resize_data_field((void**) &summary->data.distances,
-                                summary->data.max_records,
-                                sizeof *summary->data.distances);
+    res |= resize_field((void**) &summary->data.distances,
+                        summary->data.max_records,
+                        sizeof *summary->data.distances);
 
-    res |= resize_data_field((void**) &summary->data.speeds,
-                                summary->data.max_records,
-                                sizeof *summary->data.speeds);
+    res |= resize_field((void**) &summary->data.speeds,
+                        summary->data.max_records,
+                        sizeof *summary->data.speeds);
+
+    return res;
+}
+
+/**
+ * Double the size of event arrays in summary struct
+ */
+int resize_events(fit_summary *summary)
+{
+    int res = 0;
+
+    summary->data.max_events *= 2;
+
+    res |= resize_field((void**) &summary->data.events,
+                        summary->data.max_events,
+                        sizeof *summary->data.events);
+
+    res |= resize_field((void**) &summary->data.event_index,
+                        summary->data.max_events,
+                        sizeof *summary->data.event_index);
 
     return res;
 }
@@ -223,7 +276,7 @@ int resize_data(fit_summary *summary)
 /**
  * Resize array to be nmemb elements of size
  */
-int resize_data_field(void **field, size_t nmemb, size_t size)
+int resize_field(void **field, size_t nmemb, size_t size)
 {
     void *tmp;
 
