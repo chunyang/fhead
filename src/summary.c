@@ -1,8 +1,14 @@
 #include "summary.h"
 
+fit_summary* create_summary();
 int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num);
-int push_data(fit_summary *summary, const FIT_RECORD_MESG *mesg);
-int resize_data(fit_summary *summary);
+
+int push_record(fit_summary *summary, const FIT_RECORD_MESG *mesg);
+int push_event(fit_summary *summary, const FIT_EVENT_MESG *mesg);
+
+int resize_records(fit_summary *summary);
+int resize_events(fit_summary *summary);
+
 int resize_field(void **field, size_t nmemb, size_t size);
 
 fit_summary* create_summary()
@@ -32,38 +38,23 @@ fit_summary* create_summary()
 
     summary->data.num_records = 0;
     summary->data.max_records = MIN_RECORDS;
-    summary->data.timestamps =
-        malloc(MIN_RECORDS * sizeof *(summary->data.timestamps));
-    summary->data.timer_times =
-        malloc(MIN_RECORDS * sizeof *(summary->data.timer_times));
-    summary->data.latitudes =
-        malloc(MIN_RECORDS * sizeof *(summary->data.latitudes));
-    summary->data.longitudes =
-        malloc(MIN_RECORDS * sizeof *(summary->data.longitudes));
-    summary->data.distances =
-        malloc(MIN_RECORDS * sizeof *(summary->data.distances));
-    summary->data.speeds =
-        malloc(MIN_RECORDS * sizeof *(summary->data.speeds));
+    summary->data.records =
+        malloc(MIN_RECORDS * sizeof *summary->data.records);
 
     summary->data.num_events = 0;
     summary->data.max_events = MIN_EVENTS;
     summary->data.events =
-        malloc(MIN_EVENTS * sizeof *(summary->data.events));
+        malloc(MIN_EVENTS * sizeof *summary->data.events);
     summary->data.event_index =
-        malloc(MIN_EVENTS * sizeof *(summary->data.event_index));
+        malloc(MIN_EVENTS * sizeof *summary->data.event_index);
 
     return summary;
 }
 
-void destroy(fit_summary *summary)
+void destroy_summary(fit_summary *summary)
 {
     if (summary) {
-        if (summary->data.timestamps) free(summary->data.timestamps);
-        if (summary->data.timer_times) free(summary->data.timer_times);
-        if (summary->data.latitudes) free(summary->data.latitudes);
-        if (summary->data.longitudes) free(summary->data.longitudes);
-        if (summary->data.distances) free(summary->data.distances);
-        if (summary->data.speeds) free(summary->data.speeds);
+        if (summary->data.records) free(summary->data.records);
         if (summary->data.events) free(summary->data.events);
         if (summary->data.event_index) free(summary->data.event_index);
 
@@ -165,7 +156,7 @@ int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num)
         }
         case FIT_MESG_NUM_RECORD:
         {
-            return push_data(summary, (const FIT_RECORD_MESG*) mesg);
+            return push_record(summary, (const FIT_RECORD_MESG*) mesg);
         }
         case FIT_MESG_NUM_EVENT:
         {
@@ -178,11 +169,11 @@ int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num)
     return 0;
 }
 
-int push_data(fit_summary *summary, const FIT_RECORD_MESG *mesg)
+int push_record(fit_summary *summary, const FIT_RECORD_MESG *mesg)
 {
     if (summary->data.num_records == summary->data.max_records) {
         /* Increase size of data arrays */
-        if (resize_data(summary)) {
+        if (resize_records(summary)) {
             fprintf(stderr, "Unable to allocate storage for data!\n");
             exit(ENOMEM);
         }
@@ -190,11 +181,7 @@ int push_data(fit_summary *summary, const FIT_RECORD_MESG *mesg)
 
     unsigned int i = summary->data.num_records++;
 
-    summary->data.timestamps[i] = mesg->timestamp;
-    summary->data.latitudes[i] = mesg->position_lat;
-    summary->data.longitudes[i] = mesg->position_long;
-    summary->data.distances[i] = mesg->distance;
-    summary->data.speeds[i] = mesg->speed;
+    memcpy(&summary->data.records[i], mesg, FIT_RECORD_MESG_SIZE);
 
     return 0;
 }
@@ -220,35 +207,15 @@ int push_event(fit_summary *summary, const FIT_EVENT_MESG *mesg)
 /**
  * Double the size of data record arrays in summary struct
  */
-int resize_data(fit_summary *summary)
+int resize_records(fit_summary *summary)
 {
     int res = 0;
 
     summary->data.max_records *= 2;
 
-    res |= resize_field((void**) &summary->data.timestamps,
+    res |= resize_field((void**) &summary->data.records,
                         summary->data.max_records,
-                        sizeof *summary->data.timestamps);
-
-    res |= resize_field((void**) &summary->data.timer_times,
-                        summary->data.max_records,
-                        sizeof *summary->data.timer_times);
-
-    res |= resize_field((void**) &summary->data.latitudes,
-                        summary->data.max_records,
-                        sizeof *summary->data.latitudes);
-
-    res |= resize_field((void**) &summary->data.longitudes,
-                        summary->data.max_records,
-                        sizeof *summary->data.longitudes);
-
-    res |= resize_field((void**) &summary->data.distances,
-                        summary->data.max_records,
-                        sizeof *summary->data.distances);
-
-    res |= resize_field((void**) &summary->data.speeds,
-                        summary->data.max_records,
-                        sizeof *summary->data.speeds);
+                        sizeof *summary->data.records);
 
     return res;
 }
@@ -286,4 +253,61 @@ int resize_field(void **field, size_t nmemb, size_t size)
 
     *field = tmp;
     return 0;
+}
+
+/**
+ * Print summary to the output
+ */
+void print_summary(fit_summary* summary)
+{
+    int i;
+    char buf[TIME_BUF_SIZE];
+    time_t t;
+    struct tm *tmp;
+
+    printf("Product information:\n"
+            "  Manufacturer: %hu\n"
+            "  Product: %hu\n"
+            "  Serial number: %lu\n"
+            "  Software version: %hu\n"
+            "  Hardware version: %hhu\n",
+            summary->manufacturer,
+            summary->product,
+            summary->serial_number,
+            summary->software_version,
+            summary->hardware_version);
+
+    t = summary->time_created + TIME_OFFSET;
+    tmp = localtime(&t);
+    strftime(buf, sizeof buf, "%X %x", tmp);
+    printf("File information:\n"
+            "  File type: %hhu\n"
+            "  Number: %hu\n"
+            "  Time: %s\n",
+            summary->type,
+            summary->number,
+            buf);
+
+    // printf("Data:\n");
+    // for (i = 0; i < summary->data.num_records; i++) {
+    //     /* printf("%g min/mi\n", SPEED_TO_PACE(summary->data.speeds[i])); */
+    //     printf("%g\t%g\n", M_TO_MI(summary->data.distances[i]),
+    //             SPEED_TO_PACE(summary->data.speeds[i]));
+    // }
+    printf("Data:\n");
+    print_increase_indent();
+    for (i = 0; i < summary->data.num_records; i++) {
+        printf("  record number: %u\n", i);
+        print_record(&summary->data.records[i]);
+        printf("\n");
+    }
+
+    printf("Events (%u):\n", summary->data.num_events);
+    print_increase_indent();
+    for (i = 0; i < summary->data.num_events; i++) {
+        printf("  record index: %u\n", summary->data.event_index[i]);
+        print_event(&summary->data.events[i]);
+        printf("\n");
+    }
+    print_decrease_indent();
 }

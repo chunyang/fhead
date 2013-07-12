@@ -9,18 +9,15 @@
 #include <fit/fit.h>
 #include <fit/fit_convert.h>
 
+#include "print.h"
+
 #define MIN_RECORDS 64
 #define MIN_EVENTS 16
 
 typedef struct records {
     unsigned int num_records;
     unsigned int max_records;
-    FIT_DATE_TIME *timestamps;  // s
-    FIT_DATE_TIME *timer_times; // s
-    FIT_SINT32 *latitudes;      // semicircles
-    FIT_SINT32 *longitudes;     // semicircles
-    FIT_UINT32 *distances;      // 100 * m,
-    FIT_UINT16 *speeds;         // 1000 * m/s,
+    FIT_RECORD_MESG *records;
 
     unsigned int num_events;
     unsigned int max_events;
@@ -52,9 +49,10 @@ typedef struct fit_summary {
     records data;
 } fit_summary;
 
-fit_summary* create_summary();
-void destroy(fit_summary *summary);
-
 fit_summary* summarize(const char *file_name);
+
+void destroy_summary(fit_summary *summary);
+
+void print_summary(fit_summary* summary);
 
 #endif

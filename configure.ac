@@ -11,6 +11,7 @@ AM_INIT_AUTOMAKE
 AC_PROG_CC
 
 # Checks for libraries.
+AC_CHECK_LIB([m],[fmod])
 AC_CHECK_LIB([fit], [FitConvert_Init])
 
 # Checks for header files.
