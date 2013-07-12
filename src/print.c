@@ -92,6 +92,7 @@ void print_record(FIT_RECORD_MESG *mesg)
     // }
     // if (compressed_speed_distance_num_invalid != FIT_RECORD_MESG_COMPRESSED_SPEED_DISTANCE_COUNT) {
     //     iprintf("\n", mesg->compressed_speed_distance);
+    //     // FIXME
     // }
 
     if (mesg->resistance != FIT_UINT8_INVALID) {
