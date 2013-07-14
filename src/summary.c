@@ -301,6 +301,7 @@ void print_summary(fit_summary* summary)
         print_record(&summary->data.records[i]);
         printf("\n");
     }
+    print_decrease_indent();
 
     printf("Events (%u):\n", summary->data.num_events);
     print_increase_indent();
