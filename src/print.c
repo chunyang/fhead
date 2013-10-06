@@ -1,7 +1,5 @@
 #include "print.h"
 
-void iprintf(const char *format, ...);
-
 void print_record(FIT_RECORD_MESG *mesg)
 {
     unsigned int i;
@@ -185,13 +183,63 @@ void print_event(FIT_EVENT_MESG *mesg)
 }
 
 /**
+ * Convert seconds into hh:mm:ss format
+ */
+void pretty_format_time(char *s, size_t max, unsigned int t)
+{
+    snprintf(s, max, "%02d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60);
+}
+
+/**
+ * Print name of sport in English
+ */
+void pretty_format_sport(char *s, size_t max, FIT_SPORT sport)
+{
+    switch (sport) {
+        case FIT_SPORT_RUNNING:
+            strncpy(s, "running", max);
+            break;
+        case FIT_SPORT_CYCLING:
+            strncpy(s, "cycling", max);
+            break;
+        case FIT_SPORT_TRANSITION:
+            strncpy(s, "transition", max);
+            break;
+        case FIT_SPORT_FITNESS_EQUIPMENT:
+            strncpy(s, "fitness equipment", max);
+            break;
+        case FIT_SPORT_SWIMMING:
+            strncpy(s, "swimming", max);
+            break;
+        case FIT_SPORT_BASKETBALL:
+            strncpy(s, "basketball", max);
+            break;
+        case FIT_SPORT_SOCCER:
+            strncpy(s, "soccer", max);
+            break;
+        case FIT_SPORT_TENNIS:
+            strncpy(s, "tennis", max);
+            break;
+        case FIT_SPORT_AMERICAN_FOOTBALL:
+            strncpy(s, "American football", max);
+            break;
+        case FIT_SPORT_TRAINING:
+            strncpy(s, "training", max);
+            break;
+        default:
+            strncpy(s, "unknown sport", max);
+            break;
+    }
+}
+
+/**
  * Indented printf
  */
 void iprintf(const char *format, ...)
 {
     unsigned int i;
-    for (i = 0; i < print_indent_level; i++) {
-        printf("  ");
+    if (print_indent_level > 0) {
+        printf("%*c", 2 * print_indent_level, ' ');
     }
 
     va_list ap;

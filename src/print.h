@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 #include <fit/fit_example.h>
@@ -23,11 +24,18 @@
 #define TIME_BUF_SIZE 256
 #define TIME_OFFSET 631065600   // 12 AM UTC Dec 31, 1989
 
+// Shortcut macros
+#define INC_INDENT() print_increase_indent()
+#define DEC_INDENT() print_decrease_indent()
+
 static unsigned int print_indent_level;
 
 void print_record(FIT_RECORD_MESG *mesg);
 void print_event(FIT_EVENT_MESG *event);
 
+void pretty_format_time(char *s, size_t max, unsigned int t);
+
+void iprintf(const char *format, ...);
 void print_increase_indent();
 void print_decrease_indent();
 

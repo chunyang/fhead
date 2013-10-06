@@ -13,6 +13,8 @@
 
 #define MIN_RECORDS 64
 #define MIN_EVENTS 16
+#define MIN_LAPS 4
+#define MIN_SESSIONS 1
 
 typedef struct records {
     unsigned int num_records;
@@ -23,6 +25,16 @@ typedef struct records {
     unsigned int max_events;
     FIT_EVENT_MESG *events;
     unsigned int *event_index;  // Identifies where the event takes place within the records
+
+    unsigned int num_laps;
+    unsigned int max_laps;
+    FIT_LAP_MESG *laps;
+    unsigned int *lap_index;    // Identifies where the lap takes place within the records
+
+    unsigned int num_sessions;
+    unsigned int max_sessions;
+    FIT_SESSION_MESG *sessions;
+    unsigned int *session_index;    // Identifies where the session takes place within the records
 } records;
 
 typedef struct fit_summary {
@@ -42,7 +54,7 @@ typedef struct fit_summary {
     FIT_DATE_TIME total_wall_time;
     FIT_DATE_TIME total_timer_time;
     FIT_LOCAL_DATE_TIME local_timestamp;    // timestamp epoch expressed in local time, used to convert activity timestamps to local time 
-    FIT_UINT16 num_sessions;
+    /*FIT_UINT16 num_sessions; -- use data.num_sessions instead*/
     FIT_SPORT sport;
 
     /* data */

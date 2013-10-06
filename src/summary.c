@@ -33,7 +33,7 @@ fit_summary* create_summary()
     summary->total_wall_time = FIT_DATE_TIME_INVALID;
     summary->total_timer_time = FIT_DATE_TIME_INVALID;
     summary->local_timestamp = FIT_LOCAL_DATE_TIME_INVALID;
-    summary->num_sessions = FIT_UINT16_INVALID;
+    /*summary->num_sessions = FIT_UINT16_INVALID;*/
     summary->sport = FIT_SPORT_INVALID;
 
     summary->data.num_records = 0;
@@ -48,6 +48,20 @@ fit_summary* create_summary()
     summary->data.event_index =
         malloc(MIN_EVENTS * sizeof *summary->data.event_index);
 
+    summary->data.num_laps = 0;
+    summary->data.max_laps = MIN_LAPS;
+    summary->data.laps =
+        malloc(MIN_LAPS * sizeof *summary->data.laps);
+    summary->data.lap_index =
+        malloc(MIN_LAPS * sizeof *summary->data.lap_index);
+
+    summary->data.num_sessions = 0;
+    summary->data.max_sessions = MIN_SESSIONS;
+    summary->data.sessions =
+        malloc(MIN_SESSIONS * sizeof *summary->data.sessions);
+    summary->data.session_index =
+        malloc(MIN_SESSIONS * sizeof *summary->data.session_index);
+
     return summary;
 }
 
@@ -57,6 +71,10 @@ void destroy_summary(fit_summary *summary)
         if (summary->data.records) free(summary->data.records);
         if (summary->data.events) free(summary->data.events);
         if (summary->data.event_index) free(summary->data.event_index);
+        if (summary->data.laps) free(summary->data.laps);
+        if (summary->data.lap_index) free(summary->data.lap_index);
+        if (summary->data.sessions) free(summary->data.sessions);
+        if (summary->data.session_index) free(summary->data.session_index);
 
         free(summary);
     }
@@ -162,6 +180,14 @@ int update(fit_summary *summary, const FIT_UINT8 *mesg, FIT_UINT16 mesg_num)
         {
             return push_event(summary, (const FIT_EVENT_MESG*) mesg);
         }
+        case FIT_MESG_NUM_LAP:
+        {
+            return push_lap(summary, (const FIT_LAP_MESG*) mesg);
+        }
+        case FIT_MESG_NUM_SESSION:
+        {
+            return push_session(summary, (const FIT_SESSION_MESG*) mesg);
+        }
         default:
             return 1;
     }
@@ -204,6 +230,42 @@ int push_event(fit_summary *summary, const FIT_EVENT_MESG *mesg)
     return 0;
 }
 
+int push_lap(fit_summary *summary, const FIT_LAP_MESG *mesg)
+{
+    if (summary->data.num_laps == summary->data.max_laps) {
+        /* Increase the size of lap arrays */
+        if (resize_laps(summary)) {
+            fprintf(stderr, "Unable to allocate storage for laps!\n");
+            exit(ENOMEM);
+        }
+    }
+
+    unsigned int i = summary->data.num_laps++;
+
+    summary->data.lap_index[i] = summary->data.num_records;
+    memcpy(&summary->data.laps[i], mesg, FIT_LAP_MESG_SIZE);
+
+    return 0;
+}
+
+int push_session(fit_summary *summary, const FIT_SESSION_MESG *mesg)
+{
+    if (summary->data.num_sessions == summary->data.max_sessions) {
+        /* Increase the size of session arrays */
+        if (resize_sessions(summary)) {
+            fprintf(stderr, "Unable to allocate storage for sessions!\n");
+            exit(ENOMEM);
+        }
+    }
+
+    unsigned int i = summary->data.num_sessions++;
+
+    summary->data.session_index[i] = summary->data.num_records;
+    memcpy(&summary->data.sessions[i], mesg, FIT_SESSION_MESG_SIZE);
+
+    return 0;
+}
+
 /**
  * Double the size of data record arrays in summary struct
  */
@@ -241,6 +303,46 @@ int resize_events(fit_summary *summary)
 }
 
 /**
+ * Double the size of lap arrays in summary struct
+ */
+int resize_laps(fit_summary *summary)
+{
+    int res = 0;
+
+    summary->data.max_laps *= 2;
+
+    res |= resize_field((void**) &summary->data.laps,
+                        summary->data.max_laps,
+                        sizeof *summary->data.laps);
+
+    res |= resize_field((void**) &summary->data.lap_index,
+                        summary->data.max_laps,
+                        sizeof *summary->data.lap_index);
+
+    return res;
+}
+
+/**
+ * Double the size of session arrays in summary struct
+ */
+int resize_sessions(fit_summary *summary)
+{
+    int res = 0;
+
+    summary->data.max_sessions *= 2;
+
+    res |= resize_field((void**) &summary->data.sessions,
+                        summary->data.max_sessions,
+                        sizeof *summary->data.sessions);
+
+    res |= resize_field((void**) &summary->data.session_index,
+                        summary->data.max_sessions,
+                        sizeof *summary->data.session_index);
+
+    return res;
+}
+
+/**
  * Resize array to be nmemb elements of size
  */
 int resize_field(void **field, size_t nmemb, size_t size)
@@ -265,28 +367,145 @@ void print_summary(fit_summary* summary)
     time_t t;
     struct tm *tmp;
 
-    printf("Product information:\n"
-            "  Manufacturer: %hu\n"
-            "  Product: %hu\n"
-            "  Serial number: %lu\n"
-            "  Software version: %hu\n"
-            "  Hardware version: %hhu\n",
-            summary->manufacturer,
-            summary->product,
-            summary->serial_number,
-            summary->software_version,
-            summary->hardware_version);
-
     t = summary->time_created + TIME_OFFSET;
     tmp = localtime(&t);
-    strftime(buf, sizeof buf, "%X %x", tmp);
-    printf("File information:\n"
-            "  File type: %hhu\n"
-            "  Number: %hu\n"
-            "  Time: %s\n",
-            summary->type,
-            summary->number,
-            buf);
+    strftime(buf, sizeof buf, "%x %X", tmp);
+    iprintf("File information:\n");
+    INC_INDENT();
+        iprintf("File type: %hhu\n", summary->type);
+        iprintf("Number: %hu\n", summary->number);
+        iprintf("Time: %s\n", buf);
+    DEC_INDENT();
+
+    iprintf("Product information:\n");
+    INC_INDENT();
+        iprintf("Manufacturer: %hu\n", summary->manufacturer);
+        iprintf("Product: %hu\n", summary->product);
+        iprintf("Serial number: %lu\n", summary->serial_number);
+        iprintf("Software version: %hu\n", summary->software_version);
+        iprintf("Hardware version: %hhu\n", summary->hardware_version);
+    DEC_INDENT();
+
+    if (summary->data.num_records > 0) {
+        int time_start = summary->data.records[0].timestamp;
+        int time_offset;
+        int record_num_pad_width = (int) log10(summary->data.num_records) + 1;
+
+        iprintf("Records:\n");
+        INC_INDENT();
+            for (i = 0; i < summary->data.num_records; i++) {
+                // Record number
+                iprintf("%*d:\t", record_num_pad_width, i+1);
+                FIT_RECORD_MESG *record = &summary->data.records[i];
+
+                // Elapsed time
+                if (record->timestamp != FIT_DATE_TIME_INVALID) {
+                    time_offset = record->timestamp - time_start;
+                    pretty_format_time(buf, TIME_BUF_SIZE, time_offset);
+                    printf("%s\t", buf);
+                }
+
+                // Distance
+                if (record->distance != FIT_SINT32_INVALID) {
+                    printf("%.4f mi\t", CM_TO_MI(record->distance));
+                }
+
+                // Speed
+                if (record->speed != FIT_UINT16_INVALID) {
+                    printf("%.3f mph\t", MMS_TO_MPH(record->speed));
+                }
+
+                // Location
+                if (record->position_lat != FIT_SINT32_INVALID) {
+                    printf("%.5f,%.5f\t",
+                            SEMICIRCLE_TO_DEG(record->position_lat),
+                            SEMICIRCLE_TO_DEG(record->position_long));
+                }
+
+                // End of record
+                printf("\n");
+            };
+        DEC_INDENT();
+
+    }
+
+    if (summary->data.num_laps > 0) {
+        int lap_num_pad_width = (int) log10(summary->data.num_laps) + 1;
+
+        iprintf("Laps:\n");
+        INC_INDENT();
+            for (i = 0; i < summary->data.num_laps; i++) {
+                // Lap number
+                iprintf("%*d:\t", lap_num_pad_width, i+1);
+                FIT_LAP_MESG *lap = &summary->data.laps[i];
+
+                // Timer time
+                if (lap->total_timer_time != FIT_UINT32_INVALID) {
+                    pretty_format_time(buf, TIME_BUF_SIZE,
+                                       lap->total_timer_time / 1000.f);
+                    printf("%s\t", buf);
+                }
+
+                // Distance
+                if (lap->total_distance != FIT_UINT32_INVALID) {
+                    printf("%.4f mi\t", CM_TO_MI(lap->total_distance));
+                }
+
+                // Average speed
+                if (lap->avg_speed != FIT_UINT16_INVALID) {
+                    printf("%.3f mph\t", MMS_TO_MPH(lap->avg_speed));
+                }
+
+                // Sport
+                if (lap->sport != FIT_SPORT_INVALID) {
+                    pretty_format_sport(buf, TIME_BUF_SIZE, lap->sport);
+                    printf("%s\t", buf);
+                }
+
+                // End of lap
+                printf("\n");
+            }
+        DEC_INDENT();
+    }
+
+    if (summary->data.num_sessions > 0) {
+        int session_num_pad_width = (int) log10(summary->data.num_sessions)+1;
+
+        iprintf("Sessions:\n");
+        INC_INDENT();
+            for (i = 0; i < summary->data.num_sessions; i++) {
+                // Session number
+                iprintf("%*d:\t", session_num_pad_width, i+1);
+                FIT_SESSION_MESG *session = &summary->data.sessions[i];
+
+                // Timer time
+                if (session->total_timer_time != FIT_UINT32_INVALID) {
+                    pretty_format_time(buf, TIME_BUF_SIZE,
+                                       session->total_timer_time / 1000.f);
+                    printf("%s\t", buf);
+                }
+
+                // Distance
+                if (session->total_distance != FIT_UINT32_INVALID) {
+                    printf("%.4f mi\t", CM_TO_MI(session->total_distance));
+                }
+
+                // Average speed
+                if (session->avg_speed != FIT_UINT16_INVALID) {
+                    printf("%.3f mph\t", MMS_TO_MPH(session->avg_speed));
+                }
+
+                // Sport
+                if (session->sport != FIT_SPORT_INVALID) {
+                    pretty_format_sport(buf, TIME_BUF_SIZE, session->sport);
+                    printf("%s\t", buf);
+                }
+
+                // End of session
+                printf("\n");
+            }
+        DEC_INDENT();
+    }
 
     // printf("Data:\n");
     // for (i = 0; i < summary->data.num_records; i++) {
@@ -294,21 +513,22 @@ void print_summary(fit_summary* summary)
     //     printf("%g\t%g\n", M_TO_MI(summary->data.distances[i]),
     //             SPEED_TO_PACE(summary->data.speeds[i]));
     // }
-    printf("Data:\n");
-    print_increase_indent();
-    for (i = 0; i < summary->data.num_records; i++) {
-        printf("  record number: %u\n", i);
-        print_record(&summary->data.records[i]);
-        printf("\n");
-    }
-    print_decrease_indent();
 
-    printf("Events (%u):\n", summary->data.num_events);
-    print_increase_indent();
-    for (i = 0; i < summary->data.num_events; i++) {
-        printf("  record index: %u\n", summary->data.event_index[i]);
-        print_event(&summary->data.events[i]);
-        printf("\n");
-    }
-    print_decrease_indent();
+    // printf("Data:\n");
+    // print_increase_indent();
+    // for (i = 0; i < summary->data.num_records; i++) {
+    //     printf("  record number: %u\n", i);
+    //     print_record(&summary->data.records[i]);
+    //     printf("\n");
+    // }
+    // print_decrease_indent();
+
+    // printf("Events (%u):\n", summary->data.num_events);
+    // print_increase_indent();
+    // for (i = 0; i < summary->data.num_events; i++) {
+    //     printf("  record index: %u\n", summary->data.event_index[i]);
+    //     print_event(&summary->data.events[i]);
+    //     printf("\n");
+    // }
+    // print_decrease_indent();
 }

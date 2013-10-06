@@ -11,6 +11,7 @@ void print_record_table(fit_summary *summary);
 int main(int argc, const char *argv[])
 {
     fit_summary *summary;
+    int i;
 
     /* Check arguments */
     if (argc < 2) {
@@ -18,12 +19,19 @@ int main(int argc, const char *argv[])
         return EXIT_SUCCESS;
     }
 
-    summary = summarize(argv[1]);
+    for (i = 1; i < argc; i++) {
+        iprintf("Activity: %s\n", argv[i]);
+        print_increase_indent();
 
-    if (summary) {
-        // print_summary(summary);
-        print_record_table(summary);
-        destroy_summary(summary);
+        summary = summarize(argv[i]);
+
+        if (summary) {
+            print_summary(summary);
+            // print_record_table(summary);
+            destroy_summary(summary);
+        }
+
+        print_decrease_indent();
     }
 
     return EXIT_SUCCESS;
